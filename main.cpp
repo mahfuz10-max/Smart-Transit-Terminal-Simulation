@@ -4503,7 +4503,7 @@ int main(int argc, char** argv) {
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_MULTISAMPLE);
     glutInitWindowSize(winW, winH);
     glutInitWindowPosition(60, 30);
-    glutCreateWindow("CSE 4208 - NEXBUS URBAN HUB V69 Clear Glass + Birds");
+    glutCreateWindow("Smart Transit Terminal Simulation");
 
     initGL();
     printControls();
