@@ -64,3 +64,11 @@ An interactive 3D urban city bus terminal environment built using C++ and the fi
 2. Clone this repository.
 3. Compile the `main.cpp` file linking the necessary OpenGL and GLUT libraries (`-lGL -lGLU -lglut`).
 4. Run the generated executable file to explore the simulation.
+
+
+## 🛠️ Technologies Used
+
+- C++
+- OpenGL
+- GLUT / FreeGLUT
+- Code::Blocks
