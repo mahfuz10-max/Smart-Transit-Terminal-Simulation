@@ -1,88 +1,3 @@
-// V69 CLEARER GLASS + FLYING BIRDS
-// The big blue-tinted panel visible from camera preset 3 (interior looking
-// out) was drawTransparentGlass()'s window tint - correct in concept (real
-// glass, required by the rubric to show the exterior through it) but too
-// dark/saturated at up to 0.22 alpha with a doubled-up sky-reflection band
-// on top. Base tint lightened + opacity roughly halved, per-pane overlay
-// (drawV46GlassReflection) also lightened, so the window now reads as clear
-// glass with a subtle reflection instead of a big blue smear. Also added a
-// small flock of simple flapping gull-wing silhouettes (drawn camera-
-// relative like the clouds, inside drawSkyElements) that loop across the
-// sky and fade out before full night.
-//
-// V68 FLAT-ILLUSTRATION SKY RESTYLE (reference-matched)
-// Retuned drawSkyBackdrop, drawSkyCloudCluster and drawSkyElements' sun to
-// match a bright flat-design city-illustration reference the user supplied:
-// (1) sky gradient changed from a photographic blue-to-white-haze to a
-// bright cyan-blue zenith fading through mint-teal into a pale warm
-// yellow-green horizon. (2) Clouds changed from a muted photographic
-// grey/silver tone to clean, bright, near-pure-white flat-cartoon cumulus
-// shapes. (3) The sun simplified from a 4-tone white-hot-centre/bright-
-// yellow-rim photographic bloom into one cohesive flat orange disc with only
-// a soft edge, matching the reference's simple solid-colour sun. Night moon
-// colours, golden-hour tint logic (V67) and the 4-band gradient smoothing
-// (V67) are all structurally unchanged - only the day-side base colours moved.
-//
-// V67 NINE REALISM IMPROVEMENTS (quick/medium/big-effort batch)
-// Quick: (1) procedural asphalt texture re-enabled as a near-white
-// GL_MODULATE detail layer over the flat day/night road colour (cracks/
-// aggregate visible again without darkening the road - see makeRoadTexture
-// and texturedQuadXZ). (2) Trees now sway in the wind; moved OUT of the
-// static LIST_LANDSCAPE display list into per-frame drawSwayingTrees(),
-// since a display list bakes in whatever a variable's value was at compile
-// time and can never animate. (3) East-west traffic (movingBusX, taxiMotion)
-// now actually holds at a red light via trafficHeldAtSignal().
-// Medium: (4) 3-stage day cycle - goldenFactor() fades a warm sunset tint
-// in/out right at the day<->night transition midpoint, applied to the sky,
-// sun and LIGHT0/ambient. (5) Sky walls now use drawSkyGradientPanel() for a
-// smoother 4-band gradient instead of 2. (6) Building base contact shadow
-// already existed (drawCityBuilding); alpha bumped for visibility.
-// Big/optional: (7) Real GL_FOG deliberately NOT re-added - it tints every
-// fragment regardless of lighting, which is exactly what caused the old
-// blue-tint bug on the unlit road; the existing building-only manual haze in
-// drawCityDynamicOverlays was strengthened instead. (8) Simple procedural
-// decals added to car/taxi, motorcycle, auto-rickshaw and cycle-rickshaw.
-// (9) Wet-road puddle/reflection alpha strengthened in drawRainRoadReflection.
-// Also folds in V65 (daytime brightness) and V66 (realistic sky/sun/LIGHT2
-// directional fix), which were applied inline in earlier sessions.
-//
-// V64 CRITICAL FIX: BACK-FACE-CULLED ROAD/GROUND + YELLOW SAFETY MARKINGS
-// Root cause of the reported "light blue/grey road": texturedQuadXZ() and
-// darkGroundQuadXZ() wound their vertices Clockwise as seen from above (+Y).
-// initGL() enables glCullFace(GL_BACK) globally, so every top-down camera
-// view was silently culling the entire road/ground quad and showing the
-// sky-blue glClearColor straight through it. Fixed by:
-//   1) Rewinding both quads to strict Counter-Clockwise as seen from +Y.
-//   2) Wrapping both quads in glDisable/glEnable(GL_CULL_FACE) as a second,
-//      independent guard so the ground can never be culled again even if a
-//      future edit gets the winding wrong.
-//   3) Setting the literal unlit road colour to the requested deep asphalt
-//      charcoal-black RGB(0.06, 0.06, 0.07).
-// Also added vibrant yellow (RGB 1.0, 0.82, 0.05) zebra crossings and a new
-// drawBoxJunctionCross() yellow criss-cross "box junction" hazard marking at
-// every signal-controlled intersection. No teacher requirement was removed:
-// all transformations, complex objects, rotating parts, the interior/window
-// camera, multi-light setup and procedural textures are untouched below.
-//
-// V63 FIXED-FUNCTION STATE + DISPLAY-LIST REALISM AUDIT
-// Guaranteed unlit neutral road/ground colours, separated live night overlays
-// from static lists, restored fog-free city depth, corrected round wheels,
-// added seated passengers and two real night-only point lights.
-//
-// V62 FOG-FREE BLACK ASPHALT + CHARCOAL GROUND
-// Removed both fog systems because their final colour blending was tinting the
-// lower scene blue on some fixed-function OpenGL drivers. Daytime road-light
-// overlays now stay off, so roads remain black and outdoor ground stays neutral.
-//
-// V61 DARK CHARCOAL GROUND + DEEP BLACK ROAD PALETTE
-// Outdoor ground and plaza surfaces now use a neutral charcoal texture pass,
-// while vehicle roads stay deep black. This removes the blue cast without
-// darkening the terminal's interior floor or the white/yellow road markings.
-//
-// V60 FULL CALL-GRAPH CLEANUP + PERFORMANCE BUILD
-// Removed superseded V7/V19/V24/V25/V38 render systems, restored every retained
-// animation to the live scene, separated static display lists from animated
-// objects, fixed real traffic-light order, dry/wet-road logic and controls.
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -270,21 +185,14 @@ float mixf(float a, float b, float t) {
     return a + (b - a) * clampf(t, 0.0f, 1.0f);
 }
 
-// V67: 3-STAGE DAY CYCLE. Returns 0 at full day (dayNightBlend=0) and full
-// night (dayNightBlend=1), peaking at 1 exactly at the day<->night midpoint
-// (dayNightBlend=0.5) - i.e. a triangular "golden hour" window that fades in
-// and back out automatically as dayNightBlend transitions, with no extra
-// state to manage. Callers mix a small amount of warm sunset colour toward
-// this factor on top of the existing day/night colours.
+
 float goldenFactor() {
     return clampf(1.0f - std::fabs(dayNightBlend - 0.5f) * 2.0f, 0.0f, 1.0f);
 }
 
 void setMaterial(float r, float g, float b, float shininess = 32.0f,
                  float specularStrength = 0.65f, float alpha = 1.0f) {
-    // V66: ambient reflectivity raised from 0.22 to 0.32 - real surfaces
-    // reflect more ambient/sky light than 0.22 implied, which was leaving
-    // walls that face away from the sun looking almost unlit at "noon".
+   
     GLfloat ambient[]  = {0.32f*r, 0.32f*g, 0.32f*b, alpha};
     GLfloat diffuse[]  = {r, g, b, alpha};
     GLfloat specular[] = {specularStrength, specularStrength, specularStrength, alpha};
@@ -372,13 +280,7 @@ void makeRoadTexture(GLuint& id) {
             float fx = x / float(W - 1);
             float fy = y / float(H - 1);
 
-            // V52 Dhaka asphalt noise pattern (cracks, aggregate, tire marks,
-            // dust). V67: baseline lifted from 34 to 235 so this texture now
-            // works as a near-white MULTIPLICATIVE detail layer (GL_MODULATE)
-            // on top of the flat day/night road colour in texturedQuadXZ,
-            // instead of being the final colour by itself - the small
-            // deviations below (crack/aggregate/tire) still show through as
-            // subtle darker/lighter patches after multiplying.
+         
             float wide = 2.5f * std::sin(fx * 8.5f) + 2.0f * std::cos(fy * 9.0f);
             int base = 235 + int(wide) + (n1 % 9) - 4;
 
@@ -551,19 +453,9 @@ void texturedQuadXZ(float x1, float z1, float x2, float z2, float y,
                     GLuint tex, float repX = 4.0f, float repZ = 4.0f) {
     const bool roadSurface = (tex == texRoad);
 
-    // V64 CRITICAL FIX 1: the ground/road plane must never be back-face
-    // culled. glCullFace(GL_BACK) is enabled globally in initGL(); disabling
-    // it here (and re-enabling right after drawing) guarantees this quad is
-    // rendered from every camera angle, independent of vertex winding.
     glDisable(GL_CULL_FACE);
 
-    // V67: the procedural asphalt texture is re-enabled here as a subtle
-    // MULTIPLICATIVE detail layer (GL_MODULATE, set by beginTexture()) over
-    // the flat day/night colour below - cracks/aggregate/tire marks now show
-    // through as gentle variation instead of the road being one flat colour.
-    // Lighting stays OFF (unchanged from V64/V65), so the texture still can
-    // never pick up a lighting-driven tint - that decoupling is what fixed
-    // the original blue-tint bug, not the absence of a texture.
+   
     if (roadSurface) {
         beginTexture(tex);
         glDisable(GL_LIGHTING);
@@ -600,13 +492,7 @@ void texturedQuadXZ(float x1, float z1, float x2, float z2, float y,
     glEnable(GL_CULL_FACE);
 }
 
-// Draw only OUTDOOR ground with a fixed neutral tint. The normal pavement
-// texture remains available for the terminal interior, but is deliberately
-// disabled here: even a slightly blue texture channel can tint very dark
-// colours on older drivers. The supplied "shade" is the NIGHT value (kept
-// identical to every existing call site so relative darkness between plaza,
-// foundations and corner blocks is preserved); (V65) the daytime value is
-// derived from it with a flat brightness lift so callers never need editing.
+
 void darkGroundQuadXZ(float x1, float z1, float x2, float z2, float y,
                       float repX = 4.0f, float repZ = 4.0f,
                       float shade = 0.075f) {
@@ -619,10 +505,6 @@ void darkGroundQuadXZ(float x1, float z1, float x2, float z2, float y,
     glDisable(GL_TEXTURE_2D);
     glDisable(GL_LIGHTING);
 
-    // V65: daytime concrete/pavement charcoal, blended down to the original
-    // night "shade" value. The +0.155 lift maps the existing 0.055-0.11 night
-    // shades onto ~0.21-0.27 daytime brightness - inside the requested
-    // 0.22-0.26 daytime range - while keeping each patch's relative tone.
     const float dayShade = clampf(shade + 0.155f, 0.0f, 0.30f);
     const float finalShade = mixf(dayShade, shade, dayNightBlend);
     glColor3f(finalShade, finalShade, finalShade);
@@ -808,17 +690,7 @@ void drawLightPool(float x, float z, float radius, float r, float g, float b, fl
     glDisable(GL_BLEND);
     glEnable(GL_LIGHTING);
 }
-// ============================================================================
-// Scene: ground, road, markings, curb
-// ROAD/GROUND COLOUR GUARANTEE (V63, extended V64):
-// - Drivable asphalt and open outdoor ground are always drawn unlit.
-// - Their fixed neutral RGB values never depend on dayNightBlend or lights.
-// - Every road detail owns and restores its GL_LIGHTING / GL_BLEND state.
-// - Fog is forbidden everywhere in this file; depth haze is buildings-only.
-// - (V64) texturedQuadXZ/darkGroundQuadXZ wind CCW-from-above and explicitly
-//   disable/re-enable GL_CULL_FACE, so the ground can never be back-face
-//   culled and replaced by the sky-blue glClearColor from any camera angle.
-// This rule prevents blue/grey road regressions on fixed-function drivers.
+
 // ============================================================================
 void drawDashedLineZ(float x, float z1, float z2, float dash = 2.2f, float gap = 1.6f,
                      float width = 0.10f, bool yellow = false) {
@@ -1273,11 +1145,7 @@ void drawSkyBackdrop() {
         glVertex3f(-118.0f, 23.0f, -116.0f);
     glEnd();
 
-    // Flat dense urban horizon. Dhaka has a layered building skyline, not
-    // hills. V66: lighter, hazier daytime tone (distant haze); V67: gently
-    // warmed at golden hour like real backlit buildings at sunset; V68:
-    // nudged slightly warmer/greener to sit naturally against the new
-    // yellow-green horizon band; night unchanged.
+   
     float skylineR = mixf(0.62f,0.09f,dayNightBlend);
     float skylineG = mixf(0.68f,0.11f,dayNightBlend);
     float skylineB = mixf(0.66f,0.16f,dayNightBlend);
