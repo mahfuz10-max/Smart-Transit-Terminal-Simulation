@@ -14,6 +14,12 @@
 ### Interior View
 ![Interior View](interior-view.png)
 
+## 🎥 Project Demo
+
+Watch the complete project demonstration on YouTube:
+
+[▶️ Watch Smart Transit Terminal Simulation](https://youtu.be/diUcFahjD14?si=gILf7E-8ngL04Umg)
+
 An interactive 3D urban city bus terminal environment built using C++ and the fixed-function OpenGL/GLUT pipeline. This project demonstrates core computer graphics concepts including 3D rendering, lighting, procedural texturing, and complex object modeling.
 
 ## ✨ Features
